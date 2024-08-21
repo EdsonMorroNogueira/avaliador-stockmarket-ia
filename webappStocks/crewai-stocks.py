@@ -13,8 +13,7 @@ from langchain_community.tools import DuckDuckGoSearchResults
 import streamlit as st
 
 # Aqui usando um dos métodos da biblioteca onde passamos o código da Ação, a data início e a data fim E fazemos download desses dados
-
-# Criando a Tool que será utilizada pelo Agente
+# Criando a Tool que será utilizada pelo Agente de pesquisa de preços de ações
 def fetch_preco_stock(ticket):
     stock = yf.download(ticket, start="2023-08-08", end="2024-08-08")
     return stock 
@@ -25,12 +24,11 @@ yahoo_finance_tool = Tool(
      func = lambda ticket: fetch_preco_stock(ticket)
 )
 
-
 # IMPORTANDO OPENAI LLM - GPT
 os.environ['OPENAI_API_KEY'] = st.secrets['OPENAI_API_KEY']
 llm = ChatOpenAI(model = "gpt-3.5-turbo")
 
-
+# Agente responsável por pesquisar os preços da ação descrita pelo usuário
 stockPriceAnalyst = Agent(
     role = "Senior Stock Price Analyst",
     goal = "Find the {ticket} stocks price and analyses trends",
@@ -44,7 +42,7 @@ stockPriceAnalyst = Agent(
     allow_delegation = False
 )
 
-
+# Tarefa respectiva dele.
 getStockPrice = Task(
     description = "Analyze the stock {ticket} price history and create a trend analyses of up, down or sideways",
     expected_output = """ Specify the current trend stock price - up, down or sideways.
@@ -55,9 +53,11 @@ getStockPrice = Task(
 
 
 # IMPORTAR TOOL DE PESQUISA
+# Utilizando a API de pesquisa do DuckDuckGo como uma tool de pesquisa para o agente de notícias
 search_tool = DuckDuckGoSearchResults(backend = 'news', num_results = 10)
 
 
+# Agente responsável por analisar notícias sobre a empresa que possui a ação
 newsAnalyst = Agent(
     role = "Stock News Analyst",
     goal = """Create a short summary of the market news related to the stock {ticket} company. Specify the current 
@@ -79,7 +79,7 @@ newsAnalyst = Agent(
     allow_delegation = False
 )
 
-
+# Tarefa do agente de notícias
 get_news = Task (
     description = f"""Take the stock and always include BTC to it (if not request). 
     Use the search tool to search each one individually.
@@ -97,7 +97,7 @@ get_news = Task (
     agent = newsAnalyst
 )
 
-
+# Agente responsável por analisar o que os outros dois fizeram e escrever sobre elas de uma forma estruturada
 stockAnalystWrite = Agent(
     role = "Senior Stock Analyst Writer",
     goal = """Analyze the trends price and news and write an insightful compelling and informative 3 paragraph long newsletter based on the stock report
@@ -115,9 +115,9 @@ stockAnalystWrite = Agent(
     allow_delegation = True
 )
 
-
+# Tarefa do Agente Escritor
 writeAnalyses = Task (
-    description = """Use the stock price trend and the stock news report to create ana analyses and write the
+    description = """Use the stock price trend and the stock news report to create and analyses and write the
     newsletter about the {ticket} company that is brief and highlights the most important points.
     Focus on the stock price trend, news and fear/greed score. What are the near future considerations?
     Include the previous analyses of stock trend and news summary.
@@ -135,7 +135,7 @@ writeAnalyses = Task (
 
 
 # Utilizado o Hierárquico, pois no fim do dia o Agente Que escreve será o Administrador dos outros agentes
-
+    # Configurando nossa tripulação de agentes para trabalharem
 crew = Crew(
     agents = [stockPriceAnalyst, newsAnalyst, stockAnalystWrite],
     tasks = [getStockPrice, get_news, writeAnalyses],
